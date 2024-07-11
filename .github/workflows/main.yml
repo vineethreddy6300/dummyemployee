@@ -1,0 +1,31 @@
+name: Manual Postman Tests 
+
+on:
+  workflow_dispatch: # Allows manual triggering of the workflow
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+
+    - name: Fetch Latest Postman Collection
+      env:
+        POSTMAN_API_KEY: ${{ secrets.POSTMAN_KEY }}
+        COLLECTION_NAME: "Employee_des"
+      run: |
+        collection_uid=$(curl --location --request GET "https://api.getpostman.com/collections" \
+        --header "X-Api-Key: $POSTMAN_API_KEY" | jq -r --arg name "$COLLECTION_NAME" '.collections[] | select(.name == $name) | .uid')
+        
+        curl --location --request GET "https://api.getpostman.com/collections/$collection_uid" \
+        --header "X-Api-Key: $POSTMAN_API_KEY" \
+        --output Employees.postman_collection.json
+
+    - name: Run Postman Tests using Docker
+      run: |
+        docker run --rm -v $(pwd):/etc/newman postman/newman:alpine run Employees.postman_collection.json
